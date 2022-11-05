@@ -1,12 +1,27 @@
-use std::time::Instant;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    thread::{self, JoinHandle},
+    time::Instant,
+};
 
 const NUM_OF_PRIMES: u32 = 1_000_000;
 fn main() {
     let instant = Instant::now();
     single_threaded_prime(NUM_OF_PRIMES);
-    let elapsed = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    let elapsed_single = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    println!("It took {elapsed} seconds to calculate {NUM_OF_PRIMES} primes ");
+    println!("It took {elapsed_single} seconds to calculate {NUM_OF_PRIMES} primes (single) ");
+
+    let instant = Instant::now();
+    multi_threaded_prime(NUM_OF_PRIMES);
+    let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+
+    println!("It took {elapsed_multi} seconds to calculate {NUM_OF_PRIMES} primes (multi) ");
+
+    println!("The speedup was of {}", elapsed_single / elapsed_multi);
 }
 
 fn single_threaded_prime(num_of_primes: u32) {
@@ -21,6 +36,40 @@ fn single_threaded_prime(num_of_primes: u32) {
     }
 }
 
+fn multi_threaded_prime(num_of_primes: u32) {
+    let mut join_handler: Vec<JoinHandle<()>> = vec![];
+
+    let available_cores = std::thread::available_parallelism().unwrap().get() as u32;
+
+    let calculated_primes = Arc::new(Mutex::new(0u32));
+    let finished = Arc::new(AtomicBool::new(false));
+
+    for id in 0..available_cores {
+        let calculated_primes = Arc::clone(&calculated_primes);
+        let finished = Arc::clone(&finished);
+        let handle = thread::spawn(move || {
+            let mut num = id * available_cores;
+            while !finished.load(Ordering::Relaxed) {
+                if is_prime(num) {
+                    let mut count = calculated_primes.lock().unwrap();
+                    //println!("{num}");
+                    *count += 1;
+                    if *count == num_of_primes {
+                        finished.swap(true, Ordering::Relaxed);
+                    }
+                }
+                num += 1;
+            }
+        });
+
+        join_handler.push(handle);
+    }
+
+    for handle in join_handler {
+        handle.join().unwrap();
+    }
+}
+
 fn is_prime(num: u32) -> bool {
     let sqrt = (num as f64).sqrt() as u32;
     if num > 1 {
@@ -29,6 +78,7 @@ fn is_prime(num: u32) -> bool {
                 return false;
             }
         }
+        return true;
     }
-    true
+    false
 }
