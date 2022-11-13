@@ -8,13 +8,13 @@ use std::{
 
 use parking_lot::RwLock;
 
-const NUM_OF_PRIMES: u64 = 1_000_000;
+const NUM_OF_PRIMES: u64 = 1_000_000_000;
 fn main() {
-    let instant = Instant::now();
-    let res = single_threaded_prime_naive(NUM_OF_PRIMES);
-    let elapsed_single = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    // let instant = Instant::now();
+    // let res = single_threaded_prime_naive(NUM_OF_PRIMES);
+    // let elapsed_single = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    println!("It took {elapsed_single} seconds to calculate {res} primes (single) on the first {NUM_OF_PRIMES}  ");
+    // println!("It took {elapsed_single} seconds to calculate {res} primes (single) on the first {NUM_OF_PRIMES}  ");
 
     let instant = Instant::now();
     let res = sieve_of_eratosthenes(NUM_OF_PRIMES);
@@ -22,23 +22,23 @@ fn main() {
 
     println!("It took {elapsed_sieve} seconds to calculate {res} primes (sieve_eratosthenes) on the first {NUM_OF_PRIMES}  ");
 
-    let instant = Instant::now();
-    let res = multi_threaded_prime_naive_std_mutex(NUM_OF_PRIMES);
-    let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    // let instant = Instant::now();
+    // let res = multi_threaded_prime_naive_std_mutex(NUM_OF_PRIMES);
+    // let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_std_mutex) on the first {NUM_OF_PRIMES} ");
+    // println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_std_mutex) on the first {NUM_OF_PRIMES} ");
 
-    let instant = Instant::now();
-    let res = multi_threaded_prime_naive_parking_lot_mutex(NUM_OF_PRIMES);
-    let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    // let instant = Instant::now();
+    // let res = multi_threaded_prime_naive_parking_lot_mutex(NUM_OF_PRIMES);
+    // let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_parking_lot_mutex) on the first {NUM_OF_PRIMES} ");
+    // println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_parking_lot_mutex) on the first {NUM_OF_PRIMES} ");
 
-    let instant = Instant::now();
-    let res = multi_sieve_of_eratostehenes(NUM_OF_PRIMES as usize);
-    let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    // let instant = Instant::now();
+    // let res = multi_sieve_of_eratostehenes(NUM_OF_PRIMES as usize);
+    // let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
+    // println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
 
     let instant = Instant::now();
     let res = sieve_of_atkin(NUM_OF_PRIMES);
@@ -196,29 +196,35 @@ fn sieve_of_atkin(n: u64) -> u64 {
         sieve[3] = true;
     }
     let mut x = 1u64;
+    let mut y: u64;
+    let mut x_2 = 1u64;
+    let mut y_2: u64;
 
-    while x * x <= n {
-        let mut y = 1u64;
-        while y * y <= n {
-            let mut v: u64 = (4 * x * x) + (y * y);
+    while x_2 <= n {
+        y = 1;
+        y_2 = 1;
+        while y_2 <= n {
+            let mut v: u64 = (4 * x_2) + (y_2);
 
             if v <= n && (v % 12 == 1 || v % 12 == 5) {
                 sieve[v as usize] ^= true;
             }
 
-            v = (3 * x * x) + (y * y);
+            v -= x_2;
             if v <= n && v % 12 == 7 {
                 sieve[v as usize] ^= true;
             }
 
-            v = (3 * x * x) - (y * y);
+            v -= 2 * y_2;
 
             if x > y && v <= n && v % 12 == 11 {
                 sieve[v as usize] ^= true;
             }
             y += 1;
+            y_2 = y * y;
         }
         x += 1;
+        x_2 = x * x
     }
 
     let mut r = 5u64;
