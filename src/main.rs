@@ -1,13 +1,14 @@
 use std::{
     cmp::min,
+    collections::HashSet,
     sync::{Arc, Mutex},
     thread::{self, JoinHandle},
     time::Instant,
 };
 
-use dashmap::DashMap;
+use parking_lot::RwLock;
 
-const NUM_OF_PRIMES: u64 = 10_000_000;
+const NUM_OF_PRIMES: u64 = 1_000_000;
 fn main() {
     let instant = Instant::now();
     let res = single_threaded_prime_naive(NUM_OF_PRIMES);
@@ -19,7 +20,7 @@ fn main() {
     let res = sieve_of_eratosthenes(NUM_OF_PRIMES);
     let elapsed_sieve = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    println!("It took {elapsed_sieve} seconds to calculate {res} primes (sieve) on the first {NUM_OF_PRIMES}  ");
+    println!("It took {elapsed_sieve} seconds to calculate {res} primes (sieve_eratosthenes) on the first {NUM_OF_PRIMES}  ");
 
     let instant = Instant::now();
     let res = multi_threaded_prime_naive_std_mutex(NUM_OF_PRIMES);
@@ -37,7 +38,13 @@ fn main() {
     let res = multi_sieve_of_eratostehenes(NUM_OF_PRIMES as usize);
     let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_sieve) on the first {NUM_OF_PRIMES} ");
+    println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
+
+    let instant = Instant::now();
+    let res = sieve_of_atkin(NUM_OF_PRIMES);
+    let elapsed_atkin = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+
+    println!("It took {elapsed_atkin} seconds to calculate {res} primes (sieve_atkin) on the first {NUM_OF_PRIMES} ");
 }
 
 fn single_threaded_prime_naive(num_of_primes: u64) -> u64 {
@@ -134,14 +141,11 @@ fn sieve_of_eratosthenes(n: u64) -> u64 {
 }
 
 fn multi_sieve_of_eratostehenes(n: usize) -> u64 {
-    let primes: DashMap<usize, bool> = DashMap::with_capacity(n);
-    for i in 0..n {
-        primes.insert(i, true);
-    }
+    let primes: Arc<RwLock<Vec<bool>>> = Arc::new(RwLock::new(vec![true; n + 1]));
 
-    let shared_primes = Arc::new(primes);
     let m = std::thread::available_parallelism().unwrap().get();
-    let seen_primes_shared: Arc<DashMap<usize, bool>> = Arc::new(DashMap::new());
+
+    let seen_primes_shared: Arc<RwLock<HashSet<usize>>> = Arc::new(RwLock::new(HashSet::new()));
 
     let mut first_m_primes: Vec<usize> = vec![];
 
@@ -155,17 +159,17 @@ fn multi_sieve_of_eratostehenes(n: usize) -> u64 {
 
     let mut join_handler: Vec<JoinHandle<()>> = vec![];
     for initial_value in first_m_primes {
-        let primes_map = Arc::clone(&shared_primes);
+        let primes_map = Arc::clone(&primes);
 
         let seen_primes = Arc::clone(&seen_primes_shared);
         let mut p = initial_value;
         let handle = thread::spawn(move || {
             while p.pow(2) <= n {
-                if !seen_primes.contains_key(&p) && *primes_map.get(&p).unwrap() {
-                    seen_primes.insert(p, true);
+                if !seen_primes.read().contains(&p) && primes_map.read()[p] {
+                    seen_primes.write().insert(p);
                     let mut i = p.pow(2);
                     while i <= n {
-                        primes_map.alter(&i, |_, _| false);
+                        primes_map.write()[i] = false;
                         i += p
                     }
                 }
@@ -178,7 +182,59 @@ fn multi_sieve_of_eratostehenes(n: usize) -> u64 {
         handle.join().unwrap();
     }
 
-    shared_primes.iter().filter(|v| *v.value()).count() as u64 - 2
+    let x = primes.read().iter().filter(|&v| *v).count() as u64 - 2;
+    x
+}
+
+fn sieve_of_atkin(n: u64) -> u64 {
+    let mut sieve: Vec<bool> = vec![false; n as usize + 1];
+
+    if n > 2 {
+        sieve[2] = true;
+    }
+    if n > 3 {
+        sieve[3] = true;
+    }
+    let mut x = 1u64;
+
+    while x * x <= n {
+        let mut y = 1u64;
+        while y * y <= n {
+            let mut v: u64 = (4 * x * x) + (y * y);
+
+            if v <= n && (v % 12 == 1 || v % 12 == 5) {
+                sieve[v as usize] ^= true;
+            }
+
+            v = (3 * x * x) + (y * y);
+            if v <= n && v % 12 == 7 {
+                sieve[v as usize] ^= true;
+            }
+
+            v = (3 * x * x) - (y * y);
+
+            if x > y && v <= n && v % 12 == 11 {
+                sieve[v as usize] ^= true;
+            }
+            y += 1;
+        }
+        x += 1;
+    }
+
+    let mut r = 5u64;
+    while r * r <= n {
+        if sieve[r as usize] {
+            let mut i = r * r;
+            while i <= n {
+                sieve[i as usize] = false;
+                i += r * r;
+            }
+        }
+        r += 1;
+    }
+
+    let x = sieve.iter().filter(|&v| *v).count() as u64;
+    x
 }
 
 fn is_prime(num: u64) -> bool {
