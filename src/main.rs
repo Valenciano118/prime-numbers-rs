@@ -1,3 +1,5 @@
+#![feature(test)]
+
 use std::{
     cmp::min,
     collections::HashSet,
@@ -8,7 +10,7 @@ use std::{
 
 use parking_lot::RwLock;
 
-const NUM_OF_PRIMES: u64 = 1_000_000_000;
+const NUM_OF_PRIMES: u64 = 100_000_000;
 fn main() {
     // let instant = Instant::now();
     // let res = single_threaded_prime_naive(NUM_OF_PRIMES);
@@ -254,4 +256,36 @@ fn is_prime(num: u64) -> bool {
         }
     }
     true
+}
+#[cfg(test)]
+mod bench {
+    use super::*;
+    extern crate test;
+    use test::Bencher;
+
+    const NUM_OF_PRIMES: u64 = 1_000_000;
+
+    #[bench]
+    fn bench_eratosthenes_1_000_000(b: &mut Bencher) {
+        b.iter(|| sieve_of_eratosthenes(NUM_OF_PRIMES));
+    }
+    fn bench_eratosthenes_multi_1_000_000(b: &mut Bencher) {
+        b.iter(|| multi_sieve_of_eratostehenes(NUM_OF_PRIMES as usize));
+    }
+    #[bench]
+    fn bench_atking_1_000_000(b: &mut Bencher) {
+        b.iter(|| sieve_of_atkin(NUM_OF_PRIMES));
+    }
+    #[bench]
+    fn bench_naive_single_1_000_000(b: &mut Bencher) {
+        b.iter(|| single_threaded_prime_naive(NUM_OF_PRIMES));
+    }
+    #[bench]
+    fn bench_naive_multi_std_1_000_000(b: &mut Bencher) {
+        b.iter(|| multi_threaded_prime_naive_std_mutex(NUM_OF_PRIMES));
+    }
+    #[bench]
+    fn bench_naive_multi_parking_1_000_000(b: &mut Bencher) {
+        b.iter(|| multi_threaded_prime_naive_parking_lot_mutex(NUM_OF_PRIMES));
+    }
 }
