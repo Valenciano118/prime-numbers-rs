@@ -9,7 +9,7 @@ use std::{
 
 use parking_lot::RwLock;
 
-const NUM_OF_PRIMES: u64 = 1_000_000_000;
+const NUM_OF_PRIMES: u64 = 10_000_000_000;
 
 //Resource for optimizing Sieve of Eratosthenes
 //http://warp.povusers.org/programming/sieve_of_eratosthenes.html
@@ -20,23 +20,23 @@ fn main() {
 
     // println!("It took {elapsed_single} seconds to calculate {res} primes (single) on the first {NUM_OF_PRIMES}  ");
 
-    let instant = Instant::now();
-    let res = sieve_of_eratosthenes(NUM_OF_PRIMES).len();
-    let elapsed_sieve = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    // let instant = Instant::now();
+    // let res = sieve_of_eratosthenes(NUM_OF_PRIMES).len();
+    // let elapsed_sieve = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    println!("It took {elapsed_sieve} seconds to calculate {res} primes (sieve_eratosthenes) on the first {NUM_OF_PRIMES}  ");
-
-    let instant = Instant::now();
-    let res = segmented_sieve_of_eratosthenes(NUM_OF_PRIMES);
-    let elapsed_segmented = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
-
-    println!("It took {elapsed_segmented} seconds to calculate {res} primes (segmented_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
+    // println!("It took {elapsed_sieve} seconds to calculate {res} primes (sieve_eratosthenes) on the first {NUM_OF_PRIMES}  ");
 
     // let instant = Instant::now();
-    // let res = multi_threaded_prime_naive_parking_lot_mutex(NUM_OF_PRIMES);
-    // let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    // let res = segmented_sieve_of_eratosthenes(NUM_OF_PRIMES);
+    // let elapsed_segmented = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    // println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_parking_lot_mutex) on the first {NUM_OF_PRIMES} ");
+    // println!("It took {elapsed_segmented} seconds to calculate {res} primes (segmented_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
+
+    let instant = Instant::now();
+    let res = multi_segmented_sieve_of_eratosthenes(NUM_OF_PRIMES);
+    let elapsed_multi = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+
+    println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_segmented_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
 
     // let instant = Instant::now();
     // let res = multi_sieve_of_eratostehenes(NUM_OF_PRIMES as usize);
@@ -190,6 +190,65 @@ fn segmented_sieve_of_eratosthenes(n: u64) -> u64 {
         upper_limit += limit;
     }
     prime_count as u64
+}
+
+fn multi_segmented_sieve_of_eratosthenes(n: u64) -> u64 {
+    let limit = (n as f64).sqrt() as u64;
+
+    let shared_primes_smaller_than_sqrt: Arc<Vec<u64>> = Arc::new(sieve_of_eratosthenes(limit));
+    let primes_length = shared_primes_smaller_than_sqrt.len();
+    let shared_prime_count: Arc<Mutex<usize>> = Arc::new(Mutex::new(primes_length));
+
+    let num_threads = std::thread::available_parallelism().unwrap().get();
+    let mut join_handler: Vec<JoinHandle<()>> = vec![];
+
+    for id in 1..=num_threads {
+        let primes_smaller_than_sqrt = Arc::clone(&shared_primes_smaller_than_sqrt);
+        let shared_prime_count = Arc::clone(&shared_prime_count);
+        let handle = thread::spawn(move || {
+            let mut lower_limit = limit * id as u64;
+            let mut upper_limit = lower_limit + limit;
+            let mut local_prime_count = 0;
+
+            while lower_limit < n {
+                if upper_limit > n {
+                    upper_limit = n;
+                }
+
+                let mut current_segment_primes: Vec<bool> = vec![true; limit as usize];
+
+                for i in 0..primes_length {
+                    let mut low_lim = u64::div_floor(lower_limit, primes_smaller_than_sqrt[i])
+                        * primes_smaller_than_sqrt[i];
+                    if low_lim < lower_limit {
+                        low_lim += primes_smaller_than_sqrt[i];
+                    }
+
+                    for j in (low_lim..upper_limit).step_by(primes_smaller_than_sqrt[i] as usize) {
+                        current_segment_primes[(j - lower_limit) as usize] = false;
+                    }
+                }
+
+                for i in lower_limit..upper_limit {
+                    if current_segment_primes[(i - lower_limit) as usize] {
+                        local_prime_count += 1;
+                    }
+                }
+                lower_limit += limit * num_threads as u64;
+                upper_limit = lower_limit + limit;
+            }
+            let mut prime_count = shared_prime_count.lock().unwrap();
+            *prime_count += local_prime_count;
+        });
+        join_handler.push(handle);
+    }
+
+    for handle in join_handler {
+        handle.join().unwrap();
+    }
+
+    let res = *shared_prime_count.lock().unwrap() as u64;
+    res
 }
 
 fn multi_sieve_of_eratostehenes(n: usize) -> u64 {
