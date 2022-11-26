@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 parking_lot = "0.12.1"
 [profile.release]
-opt-level = 3
+opt-level = 2
 panic= "abort"
-lto = true
+lto = 'thin'
 codegen-units = 1

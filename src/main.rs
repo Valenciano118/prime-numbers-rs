@@ -9,7 +9,7 @@ use std::{
 
 use parking_lot::RwLock;
 
-const NUM_OF_PRIMES: u64 = 10_000_000_000;
+const NUM_OF_PRIMES: u64 = 10_000_000;
 
 //Resource for optimizing Sieve of Eratosthenes
 //http://warp.povusers.org/programming/sieve_of_eratosthenes.html
@@ -20,17 +20,17 @@ fn main() {
 
     // println!("It took {elapsed_single} seconds to calculate {res} primes (single) on the first {NUM_OF_PRIMES}  ");
 
-    // let instant = Instant::now();
-    // let res = sieve_of_eratosthenes(NUM_OF_PRIMES).len();
-    // let elapsed_sieve = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    let instant = Instant::now();
+    let res = sieve_of_eratosthenes(NUM_OF_PRIMES).len();
+    let elapsed_sieve = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    // println!("It took {elapsed_sieve} seconds to calculate {res} primes (sieve_eratosthenes) on the first {NUM_OF_PRIMES}  ");
+    println!("It took {elapsed_sieve} seconds to calculate {res} primes (sieve_eratosthenes) on the first {NUM_OF_PRIMES}  ");
 
-    // let instant = Instant::now();
-    // let res = segmented_sieve_of_eratosthenes(NUM_OF_PRIMES);
-    // let elapsed_segmented = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    let instant = Instant::now();
+    let res = segmented_sieve_of_eratosthenes(NUM_OF_PRIMES);
+    let elapsed_segmented = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    // println!("It took {elapsed_segmented} seconds to calculate {res} primes (segmented_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
+    println!("It took {elapsed_segmented} seconds to calculate {res} primes (segmented_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
 
     let instant = Instant::now();
     let res = multi_segmented_sieve_of_eratosthenes(NUM_OF_PRIMES);
@@ -44,11 +44,17 @@ fn main() {
 
     // println!("It took {elapsed_multi} seconds to calculate {res} primes (multi_sieve_eratosthenes) on the first {NUM_OF_PRIMES} ");
 
-    // let instant = Instant::now();
-    // let res = sieve_of_atkin(NUM_OF_PRIMES);
-    // let elapsed_atkin = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    let instant = Instant::now();
+    let res = sieve_of_atkin(NUM_OF_PRIMES);
+    let elapsed_atkin = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    // println!("It took {elapsed_atkin} seconds to calculate {res} primes (sieve_atkin) on the first {NUM_OF_PRIMES} ");
+    println!("It took {elapsed_atkin} seconds to calculate {res} primes (sieve_atkin) on the first {NUM_OF_PRIMES} ");
+
+    // let instant = Instant::now();
+    // let res = single_wheel_mod30(NUM_OF_PRIMES);
+    // let elapsed_single_wheel = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+
+    // println!("It took {elapsed_single_wheel} seconds to calculate {res} primes (single_wheel_mod30) on the first {NUM_OF_PRIMES} ");
 }
 
 fn single_threaded_prime_naive(num_of_primes: u64) -> u64 {
@@ -365,6 +371,41 @@ fn is_prime(num: u64) -> bool {
         }
     }
     true
+}
+
+fn is_prime_wheel_mod30(num: u64) -> bool{
+    
+    let wheel:Vec<u64> = vec![7,11,13,17,19,23,29,31];
+
+    if num < 2{
+        return false;
+    }
+
+    if num % 2 == 0 || num % 3 == 0 || num % 5 == 0{
+        return false;
+    }
+
+    let num_sqrt:u64 = (num as f64).sqrt() as u64;
+
+    for i in (0..num_sqrt).step_by(30){
+        for w in &wheel{
+            if i > num_sqrt{
+                break;
+            }
+            
+            if num % (w + i) == 0{
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn single_wheel_mod30(num: u64) -> u64{
+    let mut count = 11u64; //Taking into account the wheel plus 2,3,5 used in is_prime_wheel_mod30
+
+    (1..=num).filter(|&i | is_prime_wheel_mod30(i)).for_each(|_|count+=1);
+    count
 }
 #[cfg(test)]
 mod bench {
