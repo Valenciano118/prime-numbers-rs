@@ -9,7 +9,7 @@ use std::{
 
 use parking_lot::RwLock;
 
-const NUM_OF_PRIMES: u64 = 100_000_000;
+const NUM_OF_PRIMES: u64 = 1_000_000_000;
 
 //Resource for optimizing Sieve of Eratosthenes
 //http://warp.povusers.org/programming/sieve_of_eratosthenes.html
