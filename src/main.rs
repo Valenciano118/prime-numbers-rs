@@ -9,7 +9,7 @@ use std::{
 
 use parking_lot::RwLock;
 
-const NUM_OF_PRIMES: u64 = 10_000_000;
+const NUM_OF_PRIMES: u64 = 100_000_000;
 
 //Resource for optimizing Sieve of Eratosthenes
 //http://warp.povusers.org/programming/sieve_of_eratosthenes.html
@@ -50,11 +50,11 @@ fn main() {
 
     println!("It took {elapsed_atkin} seconds to calculate {res} primes (sieve_atkin) on the first {NUM_OF_PRIMES} ");
 
-    // let instant = Instant::now();
-    // let res = single_wheel_mod30(NUM_OF_PRIMES);
-    // let elapsed_single_wheel = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
+    let instant = Instant::now();
+    let res = single_wheel_mod30(NUM_OF_PRIMES);
+    let elapsed_single_wheel = instant.elapsed().as_nanos() as f64 / 1_000_000_000.0;
 
-    // println!("It took {elapsed_single_wheel} seconds to calculate {res} primes (single_wheel_mod30) on the first {NUM_OF_PRIMES} ");
+    println!("It took {elapsed_single_wheel} seconds to calculate {res} primes (single_wheel_mod30) on the first {NUM_OF_PRIMES} ");
 }
 
 fn single_threaded_prime_naive(num_of_primes: u64) -> u64 {
@@ -139,7 +139,9 @@ fn sieve_of_eratosthenes(n: u64) -> Vec<u64> {
     primes_list[0] = false;
     primes_list[1] = false;
 
-    while p.pow(2) <= n {
+    let n_sqrt: u64 = (n as f64).sqrt().ceil() as u64;
+
+    while p <= n_sqrt {
         if primes_list[p as usize] {
             let mut i = p.pow(2);
             while i <= n {
@@ -373,40 +375,35 @@ fn is_prime(num: u64) -> bool {
     true
 }
 
-fn is_prime_wheel_mod30(num: u64) -> bool{
-    
-    let wheel:Vec<u64> = vec![7,11,13,17,19,23,29,31];
+fn single_wheel_mod30(num: u64) -> u64 {
+    let mut primes_list: Vec<bool> = vec![false; num as usize + 1];
 
-    if num < 2{
-        return false;
+    let wheel: Vec<usize> = vec![7, 11, 13, 17, 19, 23, 29, 31];
+
+    for w in wheel {
+        for i in (w..=num as usize).step_by(30) {
+            primes_list[i] = true;
+        }
     }
 
-    if num % 2 == 0 || num % 3 == 0 || num % 5 == 0{
-        return false;
-    }
-
-    let num_sqrt:u64 = (num as f64).sqrt() as u64;
-
-    for i in (0..num_sqrt).step_by(30){
-        for w in &wheel{
-            if i > num_sqrt{
-                break;
-            }
-            
-            if num % (w + i) == 0{
-                return false;
+    for index in 0..primes_list.len() {
+        if primes_list[index] {
+            let mut i = 2 * index;
+            while i < num as usize {
+                primes_list[i] = false;
+                i += index;
             }
         }
     }
-    true
+
+    primes_list[2] = true;
+    primes_list[3] = true;
+    primes_list[5] = true;
+    let res: u64 = primes_list.iter().filter(|&&x| x).count() as u64;
+    res
 }
 
-fn single_wheel_mod30(num: u64) -> u64{
-    let mut count = 11u64; //Taking into account the wheel plus 2,3,5 used in is_prime_wheel_mod30
 
-    (1..=num).filter(|&i | is_prime_wheel_mod30(i)).for_each(|_|count+=1);
-    count
-}
 #[cfg(test)]
 mod bench {
     use super::*;
